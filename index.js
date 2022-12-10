@@ -43,7 +43,7 @@ app.get('/', (req, res) => {
 // See https://cloud.google.com/dialogflow/es/docs/fulfillment-webhook#webhook_request
 app.post('/', (req, res) => {
   const intent = req.body.queryResult.intent.displayName;
-
+  
   // A map of intent names to callback functions
   const intentMap = {
     "GetNumUsers": getNumUsers,
@@ -78,13 +78,15 @@ app.listen(port, () => {
 async function getNumUsers(req, res) {
 
   // TODO Fetch data from API using async/await
-
+  const resp = await fetch(`https://www.coletnelson.us/cs571/f22/hw10/api/numUsers`);
+  const numUsers = await resp.json();
+  let numberOfUsers = numUsers.users;
   res.status(200).send({
     fulfillmentMessages: [
       {
         text: {
           text: [
-            `Hello from getNumUsers!`
+            `They are ${numberOfUsers} users registered on BadgerChat!`
           ]
         }
       }
@@ -93,9 +95,135 @@ async function getNumUsers(req, res) {
 }
 
 async function getNumMsgs(req, res) {
-
+  const params = req.body.queryResult.parameters;
+  if(params.roomName){
+    const roomNameValue = params.roomName;
+    const resp = await fetch(`https://www.coletnelson.us/cs571/f22/hw10/api/chatroom/${roomNameValue}/numMessages`);
+    const numMessages = await resp.json();
+    let numberOfMessages = numMessages.messages;
+    res.status(200).send({
+      fulfillmentMessages: [
+        {
+          text: {
+            text: [
+              `They are ${numberOfMessages} messages on ${roomNameValue}!`
+            ]
+          }
+        }
+      ]
+    });
+  }
+  else{
+    const roomNameValue = "BadgerChat";
+    const resp = await fetch(`https://www.coletnelson.us/cs571/f22/hw10/api/numMessages`);
+    const numMessages = await resp.json();
+    let numberOfMessages = numMessages.messages;
+    res.status(200).send({
+      fulfillmentMessages: [
+        {
+          text: {
+            text: [
+              `They are ${numberOfMessages} messages on ${roomNameValue}!`
+            ]
+          }
+        }
+      ]
+    });
+  }
 }
 
 async function getChatMsgs(req, res) {
+  const params = req.body.queryResult.parameters;
+    const roomNameValue = params.roomName;
+    //user required number of post
+    let numberOfPosts = params.number;
+    const resp = await fetch(`https://www.coletnelson.us/cs571/f22/hw10/api/chatroom/${roomNameValue}/messages`);
+    const Messages = await resp.json();
+    let postToShow = [];
+    const stacks = [];
+    if(numberOfPosts === ''){
+      postToShow = Messages.messages[0];
+      res.status(200).send({
+        fulfillmentMessages: [
+          {
+          text: {
+            text: [
+              `Here is the ${numberOfPosts}latest message from ${roomNameValue}!`
+            ]
+          }
+          },
+          {card: {
+              title: `${postToShow.title}`,
+              subtitle: `${postToShow.poster}`,
+              buttons: [
+                {
+                  text: "READ MORE",
+                  postback: `https://www.coletnelson.us/cs571/f22/badgerchat/chatrooms/${roomNameValue}/messages/${postToShow.id}`
+                }
+              ]
+            }
+          }
+        ]
+      });
+    }
+    else if(numberOfPosts > 5){
+      numberOfPosts = 5;
+      const postToShow = Messages.messages.slice(0, numberOfPosts);
+      stacks.push({
+          text: {
+            text: [
+              `Sorry, you can only get up to the latest 5 messages. Here are the 5 latest messages from ${roomNameValue}`
+            ]
+          } 
+          
+      })
+      postToShow.forEach(element => {
+        const card = {
+          card: {
+            title: element.title,
+            subtitle: element.poster,
+            buttons: [
+              {
+                text: "READ MORE",
+                postback: `https://www.coletnelson.us/cs571/f22/badgerchat/chatrooms/${roomNameValue}/messages/${element.id}`
+              }
+            ]
+          }
+        }
+        stacks.push(card);
+      });
+      
+      res.status(200).send({
+        fulfillmentMessages: stacks
+      });
+    }else{
+      const postToShow = Messages.messages.slice(0, numberOfPosts);
+      stacks.push({
+          text: {
+            text: [
+              `Here is the ${numberOfPosts} latest message from ${roomNameValue}!`
+            ]
+          } 
+          
+      })
+      postToShow.forEach(element => {
+        const card = {
+          card: {
+            title: element.title,
+            subtitle: element.poster,
+            buttons: [
+              {
+                text: "READ MORE",
+                postback: `https://www.coletnelson.us/cs571/f22/badgerchat/chatrooms/${roomNameValue}/messages/${element.id}`
+              }
+            ]
+          }
+        }
+        stacks.push(card);
+      });
 
+      res.status(200).send({
+        fulfillmentMessages: stacks
+      });
+    }
 }
